@@ -1,1 +1,389 @@
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Inventario</title>
+  <style>
+    html, body {
+      background: transparent !important;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    #inventory-grid, button, input, select {
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body>
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inventario</title>
+<style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f4f4;
+    }
+
+    #inventory-menu {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+    }
+
+    #inventory-grid {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      grid-template-columns: repeat(5, 100px);
+      grid-template-rows: repeat(4, 100px);
+      gap: 20px;
+      padding: 30px;
+      border: 2px solid #aaa;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .slot {
+      width: 100px;
+      height: 100px;
+      background-color: #dcdcdc;
+      border: 2px solid #888;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      cursor: grab;
+      position: relative;
+    }
+
+    .slot-number {
+      position: absolute;
+      top: 5px;
+      right: 8px;
+      font-size: 12px;
+      color: #555;
+      font-weight: bold;
+    }
+
+    #submenu {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-top: 20px;
+    }
+
+    .submenu-button {
+      padding: 12px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      background-color: #dcdcdc;
+      color: #333;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .submenu-button:hover {
+      background-color: #c0c0c0;
+    }
+
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 25px;
+      border: 2px solid #333;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+      z-index: 1000;
+      text-align: center;
+      min-width: 300px;
+    }
+
+    .modal ul {
+      list-style: none;
+      padding: 0;
+      margin: 20px 0;
+    }
+
+    .modal li {
+      padding: 8px 0;
+      color: #555;
+    }
+
+    #notification {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 9999;
+    }
+
+    #notification.show {
+      opacity: 1;
+    }
+
+    .hidden {
+      display: none;
+    }
+  
+body {
+    background-color: transparent !important;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+#inventory-grid, #inventory-modal, button, input, select {
+    pointer-events: auto;
+}
+</style>
+<style>
+#inventory-grid {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: none;
+  grid-template-columns: repeat(5, 100px);
+  grid-template-rows: repeat(4, 100px);
+  gap: 20px;
+  padding: 30px;
+  border: 2px solid #aaa;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  background-color: #dcdcdc;
+}
+</style>
+</head>
+<body>
+<div id="inventory-menu"></div>
+<div id="inventory-grid">
+<div id="submenu">
+<button class="submenu-button" id="send-button">Enviar</button>
+<button class="submenu-button" id="drop-button">Soltar</button>
+</div>
+</div>
+<div class="hidden modal" id="inventory-modal">
+<h2>Contenido del slot</h2>
+<p>Detalles del objeto...</p>
+</div>
+<div class="hidden modal" id="players-modal">
+<h2>Jugadores cercanos</h2>
+<ul id="players-list">
+<li>No hay jugadores cerca.</li>
+</ul>
+<button class="submenu-button" id="close-players">Cerrar</button>
+</div>
+<div class="hidden modal" id="send-modal">
+<h2>¿A qué jugador deseas enviar el objeto?</h2>
+<ul id="send-list">
+<li>No hay jugadores cerca.</li>
+</ul>
+<button class="submenu-button" id="close-send">Cerrar</button>
+</div>
+<div class="hidden" id="notification"></div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const inventoryMenu = document.getElementById('inventory-menu');
+      const inventoryGrid = document.getElementById('inventory-grid');
+      const inventoryModal = document.getElementById('inventory-modal');
+      const submenu = document.getElementById('submenu');
+      const playersModal = document.getElementById('players-modal');
+      const sendModal = document.getElementById('send-modal');
+      const closePlayers = document.getElementById('close-players');
+      const closeSend = document.getElementById('close-send');
+      const dropButton = document.getElementById('drop-button');
+      const sendButton = document.getElementById('send-button');
+
+      function createSlot(id, showNumber = false) {
+        const slot = document.createElement('div');
+        slot.classList.add('slot');
+        slot.setAttribute('draggable', true);
+        slot.dataset.id = id;
+
+        if (showNumber) {
+          const number = document.createElement('div');
+          number.classList.add('slot-number');
+          number.textContent = id;
+          slot.appendChild(number);
+        }
+
+        slot.addEventListener('dragstart', () => {
+          slot.classList.add('dragging');
+        });
+
+        slot.addEventListener('dragend', () => {
+          slot.classList.remove('dragging');
+        });
+
+        return slot;
+      }
+
+      function generateMainMenu() {
+        inventoryMenu.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+          const slot = createSlot(i, true);
+          inventoryMenu.appendChild(slot);
+        }
+      }
+
+      function generateFullInventory() {
+        inventoryGrid.innerHTML = '';
+        for (let i = 1; i <= 20; i++) {
+          const slot = createSlot(i, false);
+          inventoryGrid.appendChild(slot);
+        }
+        inventoryGrid.appendChild(submenu);
+      }
+
+      function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.classList.remove('hidden');
+        notification.classList.add('show');
+
+        setTimeout(() => {
+          notification.classList.remove('show');
+          setTimeout(() => {
+            notification.classList.add('hidden');
+          }, 300);
+        }, 2000);
+      }
+
+      generateMainMenu();
+      generateFullInventory();
+
+      inventoryGrid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const dragging = document.querySelector('.dragging');
+        const target = e.target.closest('.slot');
+        if (target && target !== dragging) {
+          const allSlots = Array.from(inventoryGrid.querySelectorAll('.slot'));
+          const draggingIndex = allSlots.indexOf(dragging);
+          const targetIndex = allSlots.indexOf(target);
+
+          if (draggingIndex < targetIndex) {
+            inventoryGrid.insertBefore(dragging, target.nextSibling);
+          } else {
+            inventoryGrid.insertBefore(dragging, target);
+          }
+        }
+      });
+
+      inventoryGrid.addEventListener('drop', (e) => {
+        const target = e.target.closest('.slot');
+        const dragging = document.querySelector('.dragging');
+        if (target && dragging && target !== dragging) {
+          showNotification('Objeto dejado');
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.code === 'F2') {
+          const isVisible = inventoryGrid.style.display === 'grid';
+          inventoryGrid.style.display = isVisible ? 'none' : 'grid';
+          inventoryModal.classList.add('hidden');
+        }
+
+        if (e.code === 'F3') {
+          const isHidden = inventoryModal.classList.contains('hidden');
+          inventoryModal.classList.toggle('hidden', !isHidden);
+          inventoryGrid.style.display = 'none';
+        }
+      });
+
+      dropButton.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      dropButton.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dragging = document.querySelector('.dragging');
+        if (dragging) {
+          playersModal.classList.remove('hidden');
+          showNotification('Objeto dejado en el suelo');
+        }
+      });
+
+      sendButton.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      sendButton.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dragging = document.querySelector('.dragging');
+        if (dragging) {
+          sendModal.classList.remove('hidden');
+          showNotification('Selecciona un jugador para enviar el objeto');
+        }
+      });
+
+      closePlayers.addEventListener('click', () => {
+        playersModal.classList.add('hidden');
+      });
+
+      closeSend.addEventListener('click', () => {
+        sendModal.classList.add('hidden');
+      });
+    });
+  </script>
+</body>
+</html>
+
+<script>
+  window.addEventListener('message', function (event) {
+    if (event.data.action === 'open') {
+      const menuType = event.data.menu;
+      const inventoryGrid = document.getElementById('inventory-grid');
+      const inventoryModal = document.getElementById('inventory-modal');
+      if (menuType === 'menu1') {
+        if (inventoryGrid) inventoryGrid.style.display = 'grid';
+        if (inventoryModal) inventoryModal.classList.add('hidden');
+      } else if (menuType === 'menu2') {
+        if (inventoryGrid) inventoryGrid.style.display = 'none';
+        if (inventoryModal) inventoryModal.classList.remove('hidden');
+      }
+    }
+    if (event.data.action === 'close') {
+      const inventoryGrid = document.getElementById('inventory-grid');
+      const inventoryModal = document.getElementById('inventory-modal');
+      if (inventoryGrid) inventoryGrid.style.display = 'none';
+      if (inventoryModal) inventoryModal.classList.add('hidden');
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      fetch(`https://${GetParentResourceName()}/close`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+    }
+  });
+</script>
+</body>
+</html>
